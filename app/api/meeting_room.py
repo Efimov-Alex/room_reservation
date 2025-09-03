@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.db import get_async_session
 from crud.meeting_room import (
     create_meeting_room, delete_meeting_room,
-    get_meeting_room_by_id, get_room_id_by_name, 
+    get_meeting_room_by_id, get_room_id_by_name,
     read_all_rooms_from_db, update_meeting_room
 )
 from schemas.meeting_room import (
@@ -55,7 +55,7 @@ async def partially_update_meeting_room(
         obj_in: MeetingRoomUpdate,
         session: AsyncSession = Depends(get_async_session),
 ):
-    # Выносим повторяющийся код в отдельную корутину.
+    """Обновление объекта."""
     meeting_room = await check_meeting_room_exists(
         meeting_room_id, session
     )
@@ -67,20 +67,20 @@ async def partially_update_meeting_room(
         meeting_room, obj_in, session
     )
     return meeting_room
-    
 
 
 async def check_name_duplicate(
         room_name: str,
         session: AsyncSession,
 ) -> None:
+    """Проверка имен на дупликаты."""
     room_id = await get_room_id_by_name(room_name, session)
     if room_id is not None:
         raise HTTPException(
             status_code=422,
             detail='Переговорка с таким именем уже существует!',
         )
-    
+
 
 @router.delete(
     '/{meeting_room_id}',
@@ -91,7 +91,7 @@ async def remove_meeting_room(
         meeting_room_id: int,
         session: AsyncSession = Depends(get_async_session),
 ):
-    # Выносим повторяющийся код в отдельную корутину.
+    """Удаление объекта."""
     meeting_room = await check_meeting_room_exists(
         meeting_room_id, session
     )
@@ -100,10 +100,12 @@ async def remove_meeting_room(
     )
     return meeting_room
 
+
 async def check_meeting_room_exists(
         meeting_room_id: int,
         session: AsyncSession,
 ) -> MeetingRoom:
+    """Проверка существует ли комната."""
     meeting_room = await get_meeting_room_by_id(
         meeting_room_id, session
     )
@@ -112,4 +114,4 @@ async def check_meeting_room_exists(
             status_code=404,
             detail='Переговорка не найдена!'
         )
-    return meeting_room 
+    return meeting_room
