@@ -3,21 +3,28 @@
 from typing import Optional
 from fastapi import HTTPException
 
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, validator, Field
 
 
-class MeetingRoomCreate(BaseModel):
-    name: str
+class MeetingRoomBase(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=100)
     description: Optional[str]
 
+
+class MeetingRoomCreate(MeetingRoomBase):
+ 
+    name: str = Field(..., min_length=1, max_length=100)
+
+class MeetingRoomUpdate(MeetingRoomBase):
+
     @validator('name')
-    def validate_name(cls, value):
-        # Проверка на пустую строку
-        if not value.strip():
-            raise ValueError("Поле name не может быть пустым")
-            
-        # Проверка длины строки
-        if len(value) > 100:
-            raise ValueError("Длина поля name не может превышать 100 символов")
-            
+    def name_cannot_be_null(cls, value):
+        if value is None:
+            raise ValueError('Имя переговорки не может быть пустым!')
         return value
+
+class MeetingRoomDB(MeetingRoomCreate):
+    id: int 
+
+    class Config:
+        orm_mode = True 
