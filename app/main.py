@@ -1,9 +1,12 @@
 """Файл app main.py."""
+# app/main.py
 from fastapi import FastAPI
 
-from api.meeting_room import router
+# Импортируем главный роутер.
+from api.routers import main_router
 from core.config import settings
 
 app = FastAPI(title=settings.app_title)
 
-app.include_router(router)
+# Подключаем главный роутер.
+app.include_router(main_router)

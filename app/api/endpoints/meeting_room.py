@@ -3,17 +3,16 @@
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.db import get_async_session
-from crud.meeting_room import (
-    create_meeting_room, delete_meeting_room,
-    get_meeting_room_by_id, get_room_id_by_name,
-    read_all_rooms_from_db, update_meeting_room
-)
+from crud.meeting_room import meeting_room_crud
 from schemas.meeting_room import (
     MeetingRoomCreate, MeetingRoomDB, MeetingRoomUpdate
 )
 from models.meeting_room import MeetingRoom
+from api.validators import check_name_duplicate, check_meeting_room_exists
+from crud.reservation import reservation_crud
+from schemas.reservation import ReservationDB
 
-router = APIRouter(prefix='/meeting_rooms')
+router = APIRouter() 
 
 
 @router.post(
@@ -27,7 +26,7 @@ async def create_new_meeting_room(
 ):
     """Создание новой комнаты."""
     await check_name_duplicate(meeting_room.name, session)
-    new_room = await create_meeting_room(meeting_room, session)
+    new_room = await meeting_room_crud.create(meeting_room, session)
     return new_room
 
 
@@ -40,9 +39,9 @@ async def get_meeting_room(
         session: AsyncSession = Depends(get_async_session),
 ):
     """Получение комнаты."""
-    rooms = await read_all_rooms_from_db(session)
+    all_rooms = await meeting_room_crud.get_multi(session)
 
-    return rooms
+    return all_rooms
 
 
 @router.patch(
@@ -63,23 +62,10 @@ async def partially_update_meeting_room(
     if obj_in.name is not None:
         await check_name_duplicate(obj_in.name, session)
 
-    meeting_room = await update_meeting_room(
+    meeting_room = await meeting_room_crud.update(
         meeting_room, obj_in, session
     )
     return meeting_room
-
-
-async def check_name_duplicate(
-        room_name: str,
-        session: AsyncSession,
-) -> None:
-    """Проверка имен на дупликаты."""
-    room_id = await get_room_id_by_name(room_name, session)
-    if room_id is not None:
-        raise HTTPException(
-            status_code=422,
-            detail='Переговорка с таким именем уже существует!',
-        )
 
 
 @router.delete(
@@ -95,23 +81,20 @@ async def remove_meeting_room(
     meeting_room = await check_meeting_room_exists(
         meeting_room_id, session
     )
-    meeting_room = await delete_meeting_room(
-        meeting_room, session
-    )
+    meeting_room = await meeting_room_crud.remove(meeting_room, session)
     return meeting_room
 
 
-async def check_meeting_room_exists(
+@router.get(
+    '/{meeting_room_id}/reservations',
+    response_model=list[ReservationDB]
+)
+async def get_reservations_for_room(
         meeting_room_id: int,
-        session: AsyncSession,
-) -> MeetingRoom:
-    """Проверка существует ли комната."""
-    meeting_room = await get_meeting_room_by_id(
-        meeting_room_id, session
+        session: AsyncSession = Depends(get_async_session),
+):
+    await check_meeting_room_exists(meeting_room_id, session)
+    reservations = await reservation_crud.get_future_reservations_for_room(
+        room_id=meeting_room_id, session=session
     )
-    if meeting_room is None:
-        raise HTTPException(
-            status_code=404,
-            detail='Переговорка не найдена!'
-        )
-    return meeting_room
+    return reservations 
