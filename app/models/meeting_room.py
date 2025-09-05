@@ -2,7 +2,7 @@
 
 from sqlalchemy import Column, String, Text
 from sqlalchemy.orm import relationship
-
+from core.user import current_superuser
 from core.db import Base
 
 

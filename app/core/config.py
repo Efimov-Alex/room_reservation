@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     app_title: str = 'Бронирование переговорок'
     app_description: str = 'Сделано с fastApi'
     database_url: str
+    secret: str = 'SECRET'
 
     class Config:
         """Конфиг."""

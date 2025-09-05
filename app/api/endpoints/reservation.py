@@ -12,20 +12,20 @@ from api.validators import (
     check_reservation_before_edit,
     check_reservation_intersections,
 )
+from core.user import current_user
+from models import User
+from core.user import current_superuser, current_user
 
 router = APIRouter()
 
 
-@router.post(
-    '/',
-    response_model=ReservationDB,
-    response_model_exclude_none=True,
-)
-async def create_new_reservation(
+@router.post('/', response_model=ReservationDB)
+async def create_reservation(
         reservation: ReservationCreate,
         session: AsyncSession = Depends(get_async_session),
+        # Получаем текущего пользователя и сохраняем в переменную user.
+        user: User = Depends(current_user),
 ):
-    """Создание новой комнаты."""
     await check_meeting_room_exists(
         reservation.meetingroom_id, session
     )
@@ -33,15 +33,17 @@ async def create_new_reservation(
         **reservation.dict(), session=session
     )
     new_reservation = await reservation_crud.create(
-        reservation, session
+        # Передаём объект пользователя в метод создания объекта бронирования.
+        reservation, session, user
     )
-    return new_reservation
+    return new_reservation 
 
 
 @router.get(
     '/',
     response_model=list[ReservationDB],
     response_model_exclude_none=True,
+    dependencies=[Depends(current_superuser)],
 )
 async def get_all_reservations(
         session: AsyncSession = Depends(get_async_session),
@@ -51,18 +53,17 @@ async def get_all_reservations(
     return reservations
 
 
-@router.delete(
-    '/{reservation_id}',
-    response_model=ReservationDB,
-    response_model_exclude_none=True,
-)
+@router.delete('/{reservation_id}', response_model=ReservationDB)
 async def delete_reservation(
         reservation_id: int,
         session: AsyncSession = Depends(get_async_session),
+        # Новая зависимость.
+        user: User = Depends(current_user),
 ):
-    """Удаление объекта."""
+    """Для суперюзеров или создателей объекта бронирования."""
     reservation = await check_reservation_before_edit(
-        reservation_id, session
+        # Дописываем передачу user в валидатор.
+        reservation_id, session, user
     )
     reservation = await reservation_crud.remove(reservation, session)
     return reservation 
@@ -73,9 +74,13 @@ async def update_reservation(
         reservation_id: int,
         obj_in: ReservationUpdate,
         session: AsyncSession = Depends(get_async_session),
+        # Новая зависимость.
+        user: User = Depends(current_user),
 ):
+    """Для суперюзеров или создателей объекта бронирования."""
     reservation = await check_reservation_before_edit(
-        reservation_id, session
+        # Дописываем передачу user в валидатор.
+        reservation_id, session, user
     )
     await check_reservation_intersections(
         **obj_in.dict(),
@@ -89,3 +94,20 @@ async def update_reservation(
         session=session,
     )
     return reservation
+
+@router.get(
+    '/my_reservations', response_model=list[ReservationDB],
+    response_model_exclude={'user_id'},
+)
+async def get_my_reservations(
+        session: AsyncSession = Depends(get_async_session),
+        # В этой зависимости получаем обычного пользователя, а не суперюзера.
+        user: User = Depends(current_user)
+):
+    # Сразу можно добавить докстринг для большей информативности.
+    """Получает список всех бронирований для текущего пользователя."""
+    # Вызываем созданный метод.
+    reservations = await reservation_crud.get_by_user(
+        session=session, user=user
+    )
+    return reservations 

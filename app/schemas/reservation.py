@@ -54,6 +54,7 @@ class ReservationDB(ReservationCreate):
 
     id: int
     meetingroom_id: int
+    user_id: Optional[int]
 
     class Config:
         """Класс конфиг."""
